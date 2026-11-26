@@ -27,7 +27,7 @@ class Download {
         return false;
     }
 
-    static CustomFilename() {
+    static CustomFilename(extension = ".epub") {
         let CustomFilename = document.getElementById("CustomFilenameInput").value;
         let ToReplace = {
             "%URL_hostname%": (new URL(document.getElementById("startingUrlInput").value))?.hostname,
@@ -41,7 +41,7 @@ class Download {
         for (const [key, value] of Object.entries(ToReplace)) {
             CustomFilename = CustomFilename.replaceAll(key, value);
         }
-        CustomFilename = CustomFilename.trim();
+        CustomFilename = CustomFilename.trim().replace(/\.(epub|txt)$/i, "").trim();
         if (Download.isFileNameIllegalOnWindows(CustomFilename)) {
             ErrorLog.showErrorMessage(UIText.Error.errorIllegalFileName(CustomFilename, Download.illegalWindowsFileNameChars));
 
@@ -53,19 +53,20 @@ class Download {
                 }
                 newCustomFilename = newCustomFilename.trim();
                 if (newCustomFilename == "") {
-                    return EpubPacker.addExtensionIfMissing("IllegalFileName");
+                    return EpubPacker.addExtensionIfMissing("IllegalFileName", extension);
                 }
-                return EpubPacker.addExtensionIfMissing(newCustomFilename);
+                return EpubPacker.addExtensionIfMissing(newCustomFilename, extension);
             }
 
-            return EpubPacker.addExtensionIfMissing("IllegalFileName");
+            return EpubPacker.addExtensionIfMissing("IllegalFileName", extension);
         }
-        return EpubPacker.addExtensionIfMissing(CustomFilename);
+        return EpubPacker.addExtensionIfMissing(CustomFilename, extension);
     }
 
     /** write blob to "Downloads" directory */
     static save(blob, fileName, overwriteExisting, backgroundDownload) {
-        if (Download.isFileNameIllegalOnWindows(fileName.replace(".epub", ""))) {
+        let extension = fileName.toLowerCase().endsWith(".txt") ? ".txt" : ".epub";
+        if (Download.isFileNameIllegalOnWindows(fileName.replace(/\.(epub|txt)$/i, ""))) {
             ErrorLog.showErrorMessage(UIText.Error.errorIllegalFileName(fileName, Download.illegalWindowsFileNameChars));
 
             let userPreferences = main.getUserPreferences();
@@ -74,14 +75,11 @@ class Download {
                 for (let c of Download.illegalWindowsFileNameChars) {
                     newFileName = newFileName.replaceAll(c, "");
                 }
-                if (newFileName.trim() == "") {
-                    fileName = EpubPacker.addExtensionIfMissing("IllegalFileName");
-                }
-
-                fileName = EpubPacker.addExtensionIfMissing(newFileName);
+                let name = newFileName.replace(/\.(epub|txt)$/i, "").trim() || "IllegalFileName";
+                fileName = EpubPacker.addExtensionIfMissing(name, extension);
             }
             else {
-                fileName = EpubPacker.addExtensionIfMissing("IllegalFileName");
+                fileName = EpubPacker.addExtensionIfMissing("IllegalFileName", extension);
             }            
         }
         let options = {

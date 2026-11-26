@@ -51,6 +51,10 @@
 		"message": "Завантажити та аналізувати",
 		"description": "Label on button to try loading url given by 'Starting URL'"
 	},
+	"__MSG_button_Download_TXT__": {
+		"message": "Завантажити TXT",
+		"description": "Label on button to download the story as a UTF-8 text file"
+	},
 	"__MSG_button_Pack_EPUB__": {
 		"message": "Упаковати EPUB",
 		"description": "Label on button to create the EPUB"

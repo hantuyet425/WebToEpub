@@ -171,6 +171,10 @@
 		"message": "Load Additional Metadata",
 		"description": "Label on button to toggle Load and Analyse Additional Metadata"
 	},	
+	"__MSG_button_Download_TXT__": {
+		"message": "Download TXT",
+		"description": "Label on button to download the story as a UTF-8 text file"
+	},
 	"__MSG_button_Pack_EPUB__": {
 		"message": "Pack EPUB",
 		"description": "Label on button to create the EPUB"

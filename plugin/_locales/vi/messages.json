@@ -39,6 +39,10 @@
         "message": "Tải và Phân Tích",
         "description": ""
     },
+    "__MSG_button_Download_TXT__": {
+        "message": "Tải TXT",
+        "description": "Label on button to download the story as a UTF-8 text file"
+    },
     "__MSG_button_Pack_EPUB__": {
         "message": "Đóng gói EPUB",
         "description": ""

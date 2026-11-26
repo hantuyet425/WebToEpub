@@ -625,11 +625,12 @@ class Parser {
         catch (err)
         {
             ErrorLog.log(err);
+            throw err;
         }
     }
 
     async addParsersToPages(pagesToFetch) {
-        parserFactory.addParsersToPages(this, pagesToFetch);
+        return parserFactory.addParsersToPages(this, pagesToFetch);
     }
 
     groupPagesToFetch(webPages, index) {

@@ -84,6 +84,7 @@ module.exports = {
         "ProgressBar": "readonly",
         "ReadingList": "readonly",
         "RoyalRoadParser": "readonly",
+        "TextPacker": "readonly",
         "UIText": "readonly",
         "UserPreferences": "readonly",
         "util": "readonly",
