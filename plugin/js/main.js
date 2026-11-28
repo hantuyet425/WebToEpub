@@ -163,9 +163,14 @@ var main = (function() {
             parser.onStartCollecting();
             await parser.fetchContent();
             let saveToLibrary = "yes" == libclick.dataset.libclick || util.getSleepController().signal.aborted;
-            let content = saveToLibrary
-                ? await packEpub(metaInfo)
-                : TextPacker.assemble(parser.epubItemSupplier());
+            if (!saveToLibrary) {
+                let failed = [...parser.state.webPages.values()].filter(page => page.isIncludeable && page.error != null);
+                if (failed.length) {
+                    throw new Error("TXT export stopped: " + failed.length + " chapter(s) failed. First: " + failed[0].sourceUrl);
+                }
+            }
+            let epub = await packEpub(metaInfo);
+            let content = saveToLibrary ? epub : await TextPacker.assemble(epub);
             // Restore the controls before the browser opens its Save As dialog.
             setCollectingState(false);
             collecting = false;
