@@ -50,9 +50,8 @@ class EpubPacker {
         return zipWriter.close();
     }
 
-    static addExtensionIfMissing(fileName) {
-        let extension = ".epub";
-        return (fileName.endsWith(extension)) ? fileName : fileName + extension;
+    static addExtensionIfMissing(fileName, extension = ".epub") {
+        return (fileName.toLowerCase().endsWith(extension)) ? fileName : fileName + extension;
     }
 
     // every EPUB must have a mimetype and a container.xml file

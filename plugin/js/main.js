@@ -157,26 +157,31 @@ var main = (function() {
         ChapterUrlsUI.limitNumOfChapterS(userPreferences.maxChaptersPerEpub.value);
         ChapterUrlsUI.resetDownloadStateImages();
         ErrorLog.clearHistory();
-        window.workInProgress = true;
-        main.getPackEpubButton().disabled = true;
-        replaceLibAddToLibrary();
-        parser.onStartCollecting();
-        await parser.fetchContent();
-        let content = await packEpub(metaInfo);
-        // Enable button here.  If user cancels save dialog
-        // the promise never returns
-        window.workInProgress = false;
-        main.getPackEpubButton().disabled = false;
-        replaceLibAddToLibrary();
-        let overwriteExisting = userPreferences.overwriteExistingEpub.value;
-        let backgroundDownload = userPreferences.noDownloadPopup.value;
-        let fileName = Download.CustomFilename();
-        if ("yes" == libclick.dataset.libclick || util.getSleepController().signal.aborted) {
-            await library.LibAddToLibrary(content, fileName, document.getElementById("startingUrlInput").value, overwriteExisting, backgroundDownload);
-        } else {
-            await Download.save(content, fileName, overwriteExisting, backgroundDownload);
-        }
+        let collecting = true;
+        setCollectingState(true);
         try {
+            parser.onStartCollecting();
+            await parser.fetchContent();
+            let saveToLibrary = "yes" == libclick.dataset.libclick || util.getSleepController().signal.aborted;
+            if (!saveToLibrary) {
+                let failed = [...parser.state.webPages.values()].filter(page => page.isIncludeable && page.error != null);
+                if (failed.length) {
+                    throw new Error("TXT export stopped: " + failed.length + " chapter(s) failed. First: " + failed[0].sourceUrl);
+                }
+            }
+            let epub = await packEpub(metaInfo);
+            let content = saveToLibrary ? epub : await TextPacker.assemble(epub);
+            // Restore the controls before the browser opens its Save As dialog.
+            setCollectingState(false);
+            collecting = false;
+            let overwriteExisting = userPreferences.overwriteExistingEpub.value;
+            let backgroundDownload = userPreferences.noDownloadPopup.value;
+            let fileName = Download.CustomFilename(saveToLibrary ? ".epub" : ".txt");
+            if (saveToLibrary) {
+                await library.LibAddToLibrary(content, fileName, document.getElementById("startingUrlInput").value, overwriteExisting, backgroundDownload);
+            } else {
+                await Download.save(content, fileName, overwriteExisting, backgroundDownload);
+            }
             parser.updateReadingList();
             if (util.getSleepController().signal.aborted) {
                 util.resetSleepController();
@@ -189,21 +194,22 @@ var main = (function() {
                 dumpErrorLogToFile();
             }
         } catch (err) {
-            window.workInProgress = false;
-            main.getPackEpubButton().disabled = false;
+            ErrorLog.showErrorMessage(err);
+        } finally {
+            if (collecting) {
+                setCollectingState(false);
+            }
             if (util.getSleepController().signal.aborted) {
                 util.resetSleepController();
             }
-            replaceLibAddToLibrary();
-            ErrorLog.showErrorMessage(err);
         }
     }
 
-    function replaceLibAddToLibrary() {
-        let el = document.getElementById("LibAddToLibrary");
-        el.hidden = !el.hidden;
-        el = document.getElementById("LibPauseToLibrary");
-        el.hidden = !el.hidden;
+    function setCollectingState(collecting) {
+        window.workInProgress = collecting;
+        main.getPackEpubButton().disabled = collecting;
+        document.getElementById("LibAddToLibrary").hidden = collecting;
+        document.getElementById("LibPauseToLibrary").hidden = !collecting;
     }
 
     function pauseToLibrary() {

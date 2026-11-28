@@ -116,6 +116,29 @@
 
 ## About The Project
 
+### TXT download in this fork
+
+The main **Download TXT** button downloads the selected chapters together in one
+UTF-8 `.txt` file, in their selected order. Chapter headings, paragraphs and line
+breaks are retained; HTML markup and images are omitted. UTF-8 includes a BOM for
+Windows text editors, and lines use Windows CRLF endings.
+
+After loading this fork, open a supported story's chapter list, select the chapters
+and click **Download TXT**. The extension first creates a complete EPUB in memory,
+then reads its package manifest and spine to convert the XHTML chapters to TXT.
+It does not add titles from the table of contents or merge separate chapters.
+Only the final TXT is downloaded. Empty or heading-only reading items stop export.
+The library's add, pause, import and merge operations
+continue to use EPUB internally. Their dedicated EPUB download buttons retain
+that format.
+
+To build: run `npm install`, `npm run test:txt`, then `npm run lint`. Extract the
+generated `eslint/WebToEpub*.zip` and load that folder through Chrome's
+`chrome://extensions` → **Developer mode** → **Load unpacked**. A rejected chapter
+download stops the export and restores the controls; the existing explicit
+option to skip failed chapters remains available for EPUB library operations; TXT
+export stops rather than saving known failed chapters.
+
 ![WebToEpub Screen Shot][product-screenshot]
 
 &copy; 2015 David Teviotdale
