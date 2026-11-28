@@ -162,25 +162,26 @@ var main = (function() {
         try {
             parser.onStartCollecting();
             await parser.fetchContent();
-            let saveToLibrary = "yes" == libclick.dataset.libclick || util.getSleepController().signal.aborted;
-            if (!saveToLibrary) {
+            let isLibraryAction = "yes" == libclick.dataset.libclick;
+            let paused = util.getSleepController().signal.aborted;
+            if (!isLibraryAction && !paused) {
                 let failed = [...parser.state.webPages.values()].filter(page => page.isIncludeable && page.error != null);
                 if (failed.length) {
-                    throw new Error("TXT export stopped: " + failed.length + " chapter(s) failed. First: " + failed[0].sourceUrl);
+                    throw new Error("EPUB collection stopped: " + failed.length + " chapter(s) failed. First: " + failed[0].sourceUrl);
                 }
             }
             let epub = await packEpub(metaInfo);
-            let content = saveToLibrary ? epub : await TextPacker.assemble(epub);
-            // Restore the controls before the browser opens its Save As dialog.
-            setCollectingState(false);
-            collecting = false;
-            let overwriteExisting = userPreferences.overwriteExistingEpub.value;
-            let backgroundDownload = userPreferences.noDownloadPopup.value;
-            let fileName = Download.CustomFilename(saveToLibrary ? ".epub" : ".txt");
-            if (saveToLibrary) {
-                await library.LibAddToLibrary(content, fileName, document.getElementById("startingUrlInput").value, overwriteExisting, backgroundDownload);
+            let fileName = Download.CustomFilename(".epub");
+            let storyUrl = document.getElementById("startingUrlInput").value;
+            if (!isLibraryAction && !paused) {
+                await library.LibStoreSnapshot(epub, fileName, storyUrl);
+                getLibrarySection().hidden = false;
+                getAdvancedOptionsSection().hidden = true;
             } else {
-                await Download.save(content, fileName, overwriteExisting, backgroundDownload);
+                setCollectingState(false);
+                collecting = false;
+                await library.LibAddToLibrary(epub, fileName, storyUrl,
+                    userPreferences.overwriteExistingEpub.value, userPreferences.noDownloadPopup.value, isLibraryAction);
             }
             parser.updateReadingList();
             if (util.getSleepController().signal.aborted) {

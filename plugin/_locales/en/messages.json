@@ -171,7 +171,9 @@
 		"message": "Load Additional Metadata",
 		"description": "Label on button to toggle Load and Analyse Additional Metadata"
 	},	
-	"__MSG_button_Download_TXT__": {
+	"__MSG_button_Save_EPUB_To_Library__": {"message": "Save EPUB to library", "description": "Collect chapters into an EPUB and save it to the library"},
+    "__MSG_button_Lib_Template_Convert_TXT__": {"message": "Convert to TXT", "description": "Convert a saved EPUB to a plain text download"},
+    "__MSG_button_Download_TXT__": {
 		"message": "Download TXT",
 		"description": "Label on button to download the story as a UTF-8 text file"
 	},

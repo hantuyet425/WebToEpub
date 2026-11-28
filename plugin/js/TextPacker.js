@@ -58,8 +58,8 @@ class TextPacker {
             if (chapters.length === 0) {
                 throw new Error("EPUB contains no readable chapters.");
             }
-            let text = chapters.join("\n\n\n").replace(/\n/g, "\r\n");
-            return new Blob(["\uFEFF", text, "\r\n"], {type: "text/plain;charset=utf-8"});
+            let text = chapters.join("\n\n\n");
+            return new Blob([text, "\n"], {type: "text/plain;charset=utf-8"});
         } finally {
             await reader.close();
         }
@@ -79,23 +79,36 @@ class TextPacker {
             .replace(/\n{3,}/g, "\n\n")
             .trim();
         let lines = content.split("\n");
-        let comparable = value => value.normalize("NFC").replace(/\s+/g, " ").trim();
+        let comparable = value => value.normalize("NFKC").replace(/\s+/g, " ").trim();
+        let chapterNumber = value => comparable(value).match(/^(?:第\s*([0-9零〇一二三四五六七八九十百千万两兩廿卅]+)\s*(?:章|回|节|節|卷|集|部|篇)|(?:chapter|chương)\s+([0-9]+))/iu);
         let first = comparable(lines[0]);
-        let firstElement = Array.from(body.childNodes).find(node => node.nodeType === Node.ELEMENT_NODE);
-        let leadingHeading = firstElement && /^h[1-6]$/i.test(firstElement.localName)
-            && comparable(firstElement.textContent) === first;
+        let firstElement = Array.from(body.childNodes).find(node => node.nodeType === Node.ELEMENT_NODE
+            && TextPacker.nodeText(node).trim());
+        let leadingHeading = Boolean(chapterNumber(first) || (firstElement && /^h[1-6]$/i.test(firstElement.localName)
+            && comparable(firstElement.textContent) === first));
+        let number = chapterNumber(first);
+        let headingKey = value => comparable(value).replace(/[\p{P}\s]+/gu, "");
         if (leadingHeading) {
-            // Only collapse an identical leading heading repeated immediately INSIDE
-            // this XHTML file. Never compare or merge separate spine items.
+            // Compare only consecutive leading titles within one XHTML item.
             let next = 1;
             while (next < lines.length) {
                 if (!lines[next].trim()) {
                     next++;
-                } else if (comparable(lines[next]) === first) {
-                    lines.splice(next, 1);
-                } else {
+                    continue;
+                }
+                let candidate = comparable(lines[next]);
+                let candidateNumber = chapterNumber(candidate);
+                let equivalent = candidate === first || (number && candidateNumber
+                    && (number[1] || number[2]) === (candidateNumber[1] || candidateNumber[2])
+                    && headingKey(first) === headingKey(candidate));
+                if (!equivalent) {
                     break;
                 }
+                if (candidate.length > first.length) {
+                    lines[0] = lines[next];
+                    first = candidate;
+                }
+                lines.splice(next, 1);
             }
             if (!lines.slice(1).some(line => line.trim())) {
                 throw new Error("Chapter has a heading but no text: " + path + " (" + first + ")");
@@ -104,7 +117,9 @@ class TextPacker {
         if (!content) {
             throw new Error("Chapter has no text: " + path);
         }
-        return lines.join("\n").replace(/\n{3,}/g, "\n\n").trim();
+        return lines.join("\n").replace(/\n{3,}/g, "\n\n").trim().split("\n")
+            .map((line, index) => !line.trim() || (index === 0 && leadingHeading) ? line : "  " + line)
+            .join("\n");
     }
 
     static nodeText(node, preserveWhitespace = false) {

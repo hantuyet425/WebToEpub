@@ -116,28 +116,25 @@
 
 ## About The Project
 
-### TXT download in this fork
+### EPUB library and TXT conversion in this fork
 
-The main **Download TXT** button downloads the selected chapters together in one
-UTF-8 `.txt` file, in their selected order. Chapter headings, paragraphs and line
-breaks are retained; HTML markup and images are omitted. UTF-8 includes a BOM for
-Windows text editors, and lines use Windows CRLF endings.
+Select chapters and click **Save EPUB to library**. The original EPUB packer
+creates an EPUB stored locally in the extension library; no file is downloaded
+automatically. Repeated full collections create separate snapshots instead of
+appending chapters to an earlier book. Existing library add/update and pause
+operations retain their EPUB behavior.
 
-After loading this fork, open a supported story's chapter list, select the chapters
-and click **Download TXT**. The extension first creates a complete EPUB in memory,
-then reads its package manifest and spine to convert the XHTML chapters to TXT.
-It does not add titles from the table of contents or merge separate chapters.
-Only the final TXT is downloaded. Empty or heading-only reading items stop export.
-The library's add, pause, import and merge operations
-continue to use EPUB internally. Their dedicated EPUB download buttons retain
-that format.
+**Download EPUB** downloads the stored original EPUB. **Convert to TXT** reads
+that EPUB's manifest and spine without fetching the website again. It produces
+one UTF-8 TXT (without BOM, LF endings), with leading chapter headings at the
+left margin and body lines indented by two spaces. Only identical or
+punctuation-equivalent consecutive leading headings within the same XHTML item
+are collapsed. Separate chapters are never merged. Empty or heading-only text
+items stop conversion.
 
-To build: run `npm install`, `npm run test:txt`, then `npm run lint`. Extract the
-generated `eslint/WebToEpub*.zip` and load that folder through Chrome's
-`chrome://extensions` → **Developer mode** → **Load unpacked**. A rejected chapter
-download stops the export and restores the controls; the existing explicit
-option to skip failed chapters remains available for EPUB library operations; TXT
-export stops rather than saving known failed chapters.
+To build: run `npm install`, `npm run test:txt`, then `npm run lint`. Extract
+the generated `eslint/WebToEpub*.zip` and load the folder through
+Chrome's `chrome://extensions` → **Developer mode** → **Load unpacked**.
 
 ![WebToEpub Screen Shot][product-screenshot]
 

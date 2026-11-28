@@ -51,7 +51,9 @@
 		"message": "Завантажити та аналізувати",
 		"description": "Label on button to try loading url given by 'Starting URL'"
 	},
-	"__MSG_button_Download_TXT__": {
+	"__MSG_button_Save_EPUB_To_Library__": {"message": "Зберегти EPUB у бібліотеку", "description": "Collect chapters into an EPUB and save it to the library"},
+    "__MSG_button_Lib_Template_Convert_TXT__": {"message": "Перетворити на TXT", "description": "Convert a saved EPUB to a plain text download"},
+    "__MSG_button_Download_TXT__": {
 		"message": "Завантажити TXT",
 		"description": "Label on button to download the story as a UTF-8 text file"
 	},

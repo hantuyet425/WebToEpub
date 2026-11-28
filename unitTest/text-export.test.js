@@ -42,16 +42,16 @@ test("TXT keeps Unicode, chapter order, paragraphs, line breaks and inline words
     ];
     const blob = await packer.assemble(await epub(items));
     const bytes = new Uint8Array(await blob.arrayBuffer());
-    assert.deepEqual(Array.from(bytes.slice(0, 3)), [239, 187, 191]);
+    assert.notDeepEqual(Array.from(bytes.slice(0, 3)), [239, 187, 191]);
     assert.equal(blob.type, "text/plain;charset=utf-8");
-    assert.equal(await blob.text(), "Chương 2: Gặp gỡ\r\n\r\nHàn Hoang & phụ thân.\r\n\r\n你好\r\nDòng hai.\r\n\r\n\r\nChương 1\r\n\r\nMột đoạn.\r\n\r\nĐoạn tiếp.\r\n");
+    assert.equal(await blob.text(), "Chương 2: Gặp gỡ\n\n  Hàn Hoang & phụ thân.\n\n  你好\n  Dòng hai.\n\n\nChương 1\n\n  Một đoạn.\n\n  Đoạn tiếp.\n");
 });
 
 test("TXT omits images and script/style content, retains preformatted lines and table cells", async () => {
     const packer = textPacker();
     const content = "<script>bad()</script><style>bad{}</style><img src='cover.jpg'/><pre>line 1\n  line 2</pre><table><tr><td>A</td><td>B</td></tr></table>";
     const text = await (await packer.assemble(await epub([content]))).text();
-    assert.equal(text, "line 1\r\n  line 2\r\n\r\nA\tB\r\n");
+    assert.equal(text, "  line 1\n    line 2\n\n  A\tB\n");
 });
 
 function downloadContext() {
@@ -95,7 +95,8 @@ function exportContext(failFetch = false, pause = false) {
         noAdditionalMetadataCheckbox: {checked: false}, chaptersPageInChapterListCheckbox: {checked: false},
         startingUrlInput: {value: "https://example.com/story"}
     };
-    const saved = [], library = [], errors = [];
+    const saved = [], library = [], errors = [], snapshots = [];
+    const librarySection = {hidden: true}, advancedSection = {hidden: false};
     const prefs = {};
     for (const name of ["maxChaptersPerEpub", "overwriteExistingEpub", "noDownloadPopup"]) prefs[name] = {value: false};
     let signal = {aborted: false};
@@ -116,7 +117,9 @@ function exportContext(failFetch = false, pause = false) {
             updateReadingList() {}
         },
         Download: {CustomFilename: ext => "Truyện" + ext, save: (blob, name) => saved.push({blob, name})},
-        library: {LibAddToLibrary: (blob, name) => library.push({blob, name})},
+        library: {LibAddToLibrary: (blob, name) => library.push({blob, name}),
+            LibStoreSnapshot: (blob, name, url) => snapshots.push({blob, name, url})},
+        getLibrarySection: () => librarySection, getAdvancedOptionsSection: () => advancedSection,
         packEpub: () => epub(["<h1>Chương 1</h1><p>Nội dung.</p>"]),
         resetUI() {}, dumpErrorLogToFile() {}
     });
@@ -126,17 +129,19 @@ function exportContext(failFetch = false, pause = false) {
     const end = source.indexOf("    function pauseToLibrary()", start);
     assert.ok(start >= 0 && end > start);
     vm.runInContext(source.slice(start, end) + ";globalThis.exportStory = fetchContentAndPackEpub;", context);
-    return {context, fields, saved, library, errors};
+    return {context, fields, saved, library, errors, snapshots, librarySection, advancedSection};
 }
 
-test("main download saves TXT with the text exporter", async () => {
-    const {context, saved, library, fields, errors} = exportContext();
+test("main button stores a complete EPUB and opens library without downloading", async () => {
+    const {context, saved, library, fields, errors, snapshots, librarySection} = exportContext();
     await context.exportStory.call({dataset: {}});
     assert.deepEqual(errors, []);
-    assert.equal(saved.length, 1);
-    assert.equal(saved[0].name, "Truyện.txt");
-    assert.equal(await saved[0].blob.text(), "Chương 1\r\n\r\nNội dung.\r\n");
+    assert.equal(saved.length, 0);
     assert.equal(library.length, 0);
+    assert.equal(snapshots.length, 1);
+    assert.equal(snapshots[0].name, "Truyện.epub");
+    assert.equal(snapshots[0].blob.type, "application/epub+zip");
+    assert.equal(librarySection.hidden, false);
     assert.equal(fields.packEpubButton.disabled, false);
 });
 
@@ -165,7 +170,7 @@ test("fetch errors stop saving and restore controls", async () => {
 test("save failures are reported without updating the reading list", async () => {
     const {context, errors, fields} = exportContext();
     let readingListUpdated = false;
-    context.Download.save = async () => {throw new Error("Save cancelled");};
+    context.library.LibStoreSnapshot = async () => {throw new Error("Save cancelled");};
     context.parser.updateReadingList = () => {readingListUpdated = true;};
     await context.exportStory.call({dataset: {}});
     assert.deepEqual(errors, ["Save cancelled"]);
@@ -173,23 +178,20 @@ test("save failures are reported without updating the reading list", async () =>
     assert.equal(fields.packEpubButton.disabled, false);
 });
 
-test("finishing an earlier save does not unlock a later download", async () => {
+test("main controls stay locked until the EPUB is stored", async () => {
     const {context, fields} = exportContext();
     let finishSave;
     let started;
     const saving = new Promise(resolve => {started = resolve;});
-    context.Download.save = () => new Promise(resolve => {finishSave = resolve; started();});
+    context.library.LibStoreSnapshot = () => new Promise(resolve => {finishSave = resolve; started();});
     const exporting = context.exportStory.call({dataset: {}});
     await Promise.race([saving, exporting]);
     assert.equal(typeof finishSave, "function");
-    fields.packEpubButton.disabled = true;
-    context.window.workInProgress = true;
+    assert.equal(fields.packEpubButton.disabled, true);
     finishSave();
     await exporting;
-    assert.equal(fields.packEpubButton.disabled, true);
-    assert.equal(context.window.workInProgress, true);
+    assert.equal(fields.packEpubButton.disabled, false);
 });
-
 
 test("only duplicate leading headings inside a single EPUB chapter are collapsed", async () => {
     const packer = textPacker();
@@ -201,7 +203,7 @@ test("only duplicate leading headings inside a single EPUB chapter are collapsed
         "<h1>第1章 同名</h1><p>戊</p>"
     ]);
     const text = await (await packer.assemble(book)).text();
-    assert.equal(text, "第1章 同名\r\n\r\n甲\r\n\r\n\r\n第2章 同名\r\n\r\n乙\r\n\r\n\r\n第3章 故事（上）\r\n\r\n丙\r\n\r\n\r\n第4章 故事（下）\r\n\r\n丁\r\n\r\n\r\n第1章 同名\r\n\r\n戊\r\n");
+    assert.equal(text, "第1章 同名\n\n  甲\n\n\n第2章 同名\n\n  乙\n\n\n第3章 故事（上）\n\n  丙\n\n\n第4章 故事（下）\n\n  丁\n\n\n第1章 同名\n\n  戊\n");
 });
 
 test("empty and title-only spine items stop export", async () => {
@@ -217,4 +219,35 @@ test("failed selected chapters stop TXT even when parser supplies an EPUB placeh
     await context.exportStory.call({dataset: {}});
     assert.equal(saved.length, 0);
     assert.match(errors[0], /chapter\(s\) failed/);
+});
+
+
+test("punctuation variants of the same leading chapter title keep the fuller title", async () => {
+    const packer = textPacker();
+    const book = await epub(["<h1>第7章 魔藥實習生</h1><p>第7章 魔藥——實習生</p><p>正文</p>",
+        "<h1>第8章 魔藥實習生</h1><p>另一章</p>"]);
+    assert.equal(await (await packer.assemble(book)).text(), "第7章 魔藥——實習生\n\n  正文\n\n\n第8章 魔藥實習生\n\n  另一章\n");
+});
+
+test("library TXT action reads saved EPUB and downloads only TXT without modifying the book", async () => {
+    const errors = [], saved = [];
+    const stored = await epub(["<h1>第1章 遠航</h1><p>正文</p>"]);
+    const context = vm.createContext({
+        Blob, DOMParser, URL, zip, FileReader: class {}, Node: {TEXT_NODE: 3, ELEMENT_NODE: 1},
+        ErrorLog: {showErrorMessage: error => errors.push(error.message)},
+        UserPreferences: {readFromLocalStorage: () => ({overwriteExistingEpub: {value: false}, noDownloadPopup: {value: false}})},
+        Download: {save: (blob, filename) => saved.push({blob, filename})}
+    });
+    load("plugin/js/TextPacker.js", context);
+    load("plugin/js/Library.js", context);
+    const Library = vm.runInContext("Library", context);
+    Library.LibGetFromStorage = async key => key === "LibEpub9" ? stored : key === "LibFilename9" ? "Truyện" : null;
+    Library.LibConvertDataUrlToBlob = async data => data;
+    const button = {disabled: false, dataset: {libepubid: "9"}};
+    await Library.LibConvertTxt(button);
+    assert.deepEqual(errors, []);
+    assert.equal(saved.length, 1);
+    assert.equal(saved[0].filename, "Truyện.txt");
+    assert.equal(await saved[0].blob.text(), "第1章 遠航\n\n  正文\n");
+    assert.equal(button.disabled, false);
 });
